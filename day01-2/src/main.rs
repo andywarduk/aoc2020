@@ -1,42 +1,40 @@
 use std::fs;
 use std::io::{self, BufRead};
 
-fn main() {
-    let numbers = load_numbers();
+const SUM: u32 = 2020;
 
-    let mut finished = false;
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let numbers = load_numbers()?;
+
     for a in 0..numbers.len() {
         for b in (a + 1)..numbers.len() {
             for c in (b + 1)..numbers.len() {
-                if numbers[a] + numbers[b] + numbers[c] == 2020 {
-                    println!("{} on line {} + {} on line {} + {} on line {} = 2020, product is {}",
-                        numbers[a], a, numbers[b], b, numbers[c], c, numbers[a] * numbers[b] * numbers[c]
-                        );
-                    finished = true;
-                    break;
+                if numbers[a] + numbers[b] + numbers[c] == SUM {
+                    println!("{} on line {} + {} on line {} + {} on line {} = {}, product is {}",
+                        numbers[a], a + 1,
+                        numbers[b], b + 1,
+                        numbers[c], c + 1,
+                        SUM,
+                        numbers[a] * numbers[b] * numbers[c]);
+                    return Ok(());
                 }
             }
-
-            if finished {
-                break
-            }
-        }
-
-        if finished {
-            break
         }
     }
+
+    Err(format!("Sum to {} not found", SUM).into())
 }
 
-fn load_numbers() -> Vec<u32> {
+fn load_numbers() -> Result<Vec<u32>, std::io::Error> {
     // Open the file read only
-    let input = fs::File::open("../input01.txt").expect("Error opening file");
+    let input = fs::File::open("../input01.txt")?;
 
     // Create a buffered reader on the file
     let inputbuf = io::BufReader::new(input);
 
-    inputbuf.lines() // Create line iterator
-        .filter(|s| !s.as_ref().unwrap().is_empty()) // Remove empty lines
-        .map(|s| s.unwrap().parse::<u32>().unwrap()) // Parse to u32
-        .collect() // Collect results
+    let vec = inputbuf.lines() // Create line iterator
+        .filter_map(|s| s.unwrap().parse().ok()) // Try and convert to u32. Filter out entries that fail
+        .collect(); // Collect results
+
+    Ok(vec)
 }
