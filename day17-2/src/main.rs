@@ -1,8 +1,16 @@
 use std::collections::HashSet;
 
+#[derive(Hash, Default, PartialEq, Eq)]
+struct Coord {
+    x: i32,
+    y: i32,
+    z: i32,
+    w: i32
+}
+
 #[derive(Default)]
 struct State {
-    board: HashSet<String>,
+    board: HashSet<Coord>,
     minx: i32,
     maxx: i32,
     miny: i32,
@@ -47,13 +55,13 @@ fn setup_state(board: &str) -> State {
         let mut x = 0;
 
         for c in line.chars() {
-            let active = match c {
-                '.' => false,
-                '#' => true,
+            match c {
+                '.' => {},
+                '#' => {
+                    set_active(&mut state, Coord {x, y, z: 0, w: 0});                    
+                },
                 _ => panic!("Unrecognised char '{}'", c)
             };
-
-            set_state(&mut state, x, y, 0, 0, active);
 
             x += 1;
         }
@@ -64,36 +72,40 @@ fn setup_state(board: &str) -> State {
     state
 }
 
-fn set_state(state: &mut State, x: i32, y: i32, z: i32, w: i32, active: bool) {
-    if active {
-        state.board.insert(coord_to_key(x, y, z, w));
+fn set_active(state: &mut State, coord: Coord) {
+    if coord.x < state.minx { state.minx = coord.x };
+    if coord.x > state.maxx { state.maxx = coord.x };
+    if coord.y < state.miny { state.miny = coord.y };
+    if coord.y > state.maxy { state.maxy = coord.y };
+    if coord.z < state.minz { state.minz = coord.z };
+    if coord.z > state.maxz { state.maxz = coord.z };
+    if coord.w < state.minw { state.minw = coord.w };
+    if coord.w > state.maxw { state.maxw = coord.w };
 
-        if x < state.minx { state.minx = x };
-        if x > state.maxx { state.maxx = x };
-        if y < state.miny { state.miny = y };
-        if y > state.maxy { state.maxy = y };
-        if z < state.minz { state.minz = z };
-        if z > state.maxz { state.maxz = z };
-        if w < state.minw { state.minw = w };
-        if w > state.maxw { state.maxw = w };
-    }
-}
-
-fn coord_to_key(x: i32, y: i32, z: i32, w: i32) -> String {
-    format!("{},{},{},{}", x, y, z, w)
+    state.board.insert(coord);
 }
 
 fn dump_state(desc: &str, state: &State) {
     println!("{}:", desc);
     println!("");
 
+    let mut coord: Coord = Default::default();
+
     for w in state.minw..=state.maxw {
+        coord.w = w;
+
         for z in state.minz..=state.maxz {
+            coord.z = z;
+
             println!("w={} z={} (@ x={}, y={})", w, z, state.minx, state.miny);
 
             for y in state.miny..=state.maxy {
+                coord.y = y;
+
                 for x in state.minx..=state.maxx {
-                    print!("{}", match state.board.get(&coord_to_key(x, y, z, w)).is_some() {
+                    coord.x = x;
+
+                    print!("{}", match state.board.get(&coord).is_some() {
                         true => '#',
                         false => '.'
                     });
@@ -114,9 +126,11 @@ fn mutate_state(state: State) -> State {
         for z in state.minz - 1..=state.maxz + 1 {
             for y in state.miny - 1..=state.maxy + 1 {
                 for x in state.minx - 1..=state.maxx + 1 {
-                    let cur_active = state.board.get(&coord_to_key(x, y, z, w)).is_some();
+                    let coord = Coord { x, y, z, w };
 
-                    let neig = count_neighbours(&state, x, y, z, w);
+                    let cur_active = state.board.get(&coord).is_some();
+
+                    let neig = count_neighbours(&state, &coord);
 
                     let now_active = if cur_active {
                         match neig {
@@ -130,7 +144,9 @@ fn mutate_state(state: State) -> State {
                         }
                     };
 
-                    set_state(&mut new_state, x, y, z, w, now_active);
+                    if now_active {
+                        set_active(&mut new_state, coord);
+                    }
                 }
             }
         }
@@ -139,16 +155,26 @@ fn mutate_state(state: State) -> State {
     new_state
 }
 
-fn count_neighbours(state: &State, x: i32, y: i32, z: i32, w: i32) -> u32 {
+fn count_neighbours(state: &State, coord: &Coord) -> u32 {
     let mut neig = 0;
 
-    for xp in x - 1..=x + 1 {
-        for yp in y - 1..=y + 1 {
-            for zp in z - 1..=z + 1 {
-                for wp in w - 1..=w + 1 {
-                    if xp == x && yp == y && zp == z && wp == w { continue };
+    let mut coordp: Coord = Default::default();
 
-                    if state.board.get(&coord_to_key(xp, yp, zp, wp)).is_some() {
+    for xp in coord.x - 1..=coord.x + 1 {
+        coordp.x = xp;
+
+        for yp in coord.y - 1..=coord.y + 1 {
+            coordp.y = yp;
+
+            for zp in coord.z - 1..=coord.z + 1 {
+                coordp.z = zp;
+
+                for wp in coord.w - 1..=coord.w + 1 {
+                    coordp.w = wp;
+
+                    if coordp == *coord { continue };
+
+                    if state.board.get(&coordp).is_some() {
                         neig += 1
                     };
                 }
